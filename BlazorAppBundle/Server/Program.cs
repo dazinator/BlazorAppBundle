@@ -23,8 +23,8 @@ else
 
 app.UseHttpsRedirection();
 
-app.UseBlazorFrameworkFiles();
-app.UseStaticFiles();
+//app.UseBlazorFrameworkFiles();
+//app.UseStaticFiles();
 
 app.UseRouting();
 
@@ -32,7 +32,26 @@ app.UseRouting();
 app.MapRazorPages();
 app.MapControllers();
 
-app.MapGet("app.bundle", (HttpContext context) =>
+app.MapWhen(ctx => ctx.Request.Path.StartsWithSegments("/firstapp"), first =>
+{
+    first.Use((ctx, nxt) =>
+    {
+        ctx.Request.Path = "/firstapp" + ctx.Request.Path;
+        return nxt();
+    });
+    first.UseBlazorFrameworkFiles("/firstapp");
+    first.UseStaticFiles();
+    first.UseStaticFiles("/firstapp");
+
+    first.UseRouting();
+    first.UseEndpoints(endpoints =>
+    {
+        endpoints.MapControllers();
+        endpoints.MapFallbackToFile("firstapp/{*path:nonfile}", "firstapp/index.html");
+    });
+});
+
+app.MapGet("/firstapp/app.bundle", (HttpContext context) =>
 {
     string? contentEncoding = null;
     var contentType = "multipart/form-data; boundary=\"--0a7e8441d64b4bf89086b85e59523b7d\"";
@@ -58,9 +77,9 @@ app.MapGet("app.bundle", (HttpContext context) =>
         context.Response.Headers.ContentEncoding = contentEncoding;
     }
     return Results.File(
-        app.Environment.WebRootFileProvider.GetFileInfo(fileName).CreateReadStream(),
+        app.Environment.WebRootFileProvider.GetFileInfo(Path.Combine("firstapp", fileName)).CreateReadStream(),
         contentType);
 });
-app.MapFallbackToFile("index.html");
+//app.MapFallbackToFile("index.html");
 
 app.Run();
